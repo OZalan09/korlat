@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Korlát">
+<meta name="theme-color" content="#0f1115">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Korlát</title>
+<style>
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1a1c20;--muted:#6b6f78;--line:#e3e3de;--accent:#2f6fed;--ok:#1f9d55;--warn:#d97706;--bad:#d64545;--bar:#e9e9e4}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--muted:#8d93a0;--line:#262a33;--accent:#5b8cff;--ok:#3ccf7e;--warn:#f0a43a;--bad:#ff6b6b;--bar:#262a33}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 32px)}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-size:26px;margin:0;letter-spacing:-.02em}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 10px;border-radius:999px;background:var(--bar);color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.ok .dot{background:var(--ok)}.pill.warn .dot{background:var(--warn)}.pill.bad .dot{background:var(--bad)}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+button{border:0;border-radius:10px;padding:11px 14px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+button.ghost{background:var(--bar);color:var(--ink)}
+button.danger{background:var(--bad)}
+button.small{padding:7px 10px;font-size:14px}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.row>.fit{flex:0 0 auto}
+.stack>*+*{margin-top:10px}
+.app{padding:12px 0;border-top:1px solid var(--line)}
+.app:first-of-type{border-top:0;padding-top:0}
+.app-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.app-name{font-weight:600}
+.app-meta{font-size:14px;color:var(--muted);white-space:nowrap}
+.bar{height:8px;background:var(--bar);border-radius:999px;overflow:hidden;margin:8px 0}
+.bar>div{height:100%;background:var(--accent);border-radius:999px}
+.bar.full>div{background:var(--bad)}
+.tag{font-size:12px;font-weight:700;color:var(--bad);margin-left:6px}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.muted{color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:14px}
+.grid b{font-weight:600}
+.list{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.list div{padding:10px 12px;border-top:1px solid var(--line);cursor:pointer}
+.list div:first-child{border-top:0}
+.list div.sel{background:var(--accent);color:#fff}
+.hidden{display:none!important}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Korlát</h1>
+    <span id="online" class="pill hidden"><span class="dot"></span><span id="onlineText"></span></span>
+  </header>
+
+  <section id="login" class="card stack hidden">
+    <h2>Bejelentkezés</h2>
+    <input id="email" type="email" autocomplete="username" placeholder="E-mail">
+    <input id="password" type="password" autocomplete="current-password" placeholder="Jelszó">
+    <button id="loginBtn">Belépés</button>
+    <div class="muted"><a href="#" id="resetLink">Elfelejtett jelszó</a></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <h2>Ma</h2>
+      <div id="apps"></div>
+    </section>
+
+    <section class="card stack">
+      <h2>Új korlát</h2>
+      <input id="search" placeholder="App keresése">
+      <div id="appList" class="list"></div>
+      <div class="row">
+        <input id="newMinutes" type="number" min="0" inputmode="numeric" placeholder="Perc / nap">
+        <button id="addBtn" class="fit">Hozzáadás</button>
+      </div>
+    </section>
+
+    <section class="card stack">
+      <h2>Figyelmeztetés</h2>
+      <div class="row">
+        <input id="warnMinutes" type="number" min="0" inputmode="numeric" placeholder="Perc">
+        <span class="fit muted">perccel a vége előtt</span>
+      </div>
+      <input id="warnText" placeholder="Üzenet">
+      <div class="muted">{perc} = hátralévő perc, {app} = az app neve</div>
+      <button id="warnBtn">Mentés</button>
+    </section>
+
+    <section class="card">
+      <h2>Telefon</h2>
+      <div class="grid" id="phone"></div>
+    </section>
+
+    <section class="card stack">
+      <h2>Feloldás</h2>
+      <div class="muted" id="releaseInfo">Minden korlátozás megszűnik, és az app eltávolíthatóvá válik a telefonon.</div>
+      <button id="releaseBtn" class="danger">Teljes feloldás</button>
+      <button id="unreleaseBtn" class="ghost hidden">Feloldás visszavonása</button>
+    </section>
+
+    <div class="muted" style="text-align:center"><a href="#" id="logout">Kijelentkezés</a></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBpDk073bQ-dUI5v15IdDYPWp2sHXUSHXo",
+  authDomain: "korlat-84232.firebaseapp.com",
+  projectId: "korlat-84232",
+  storageBucket: "korlat-84232.firebasestorage.app",
+  messagingSenderId: "486937224299",
+  appId: "1:486937224299:web:edaf2ae7f95fb7cb8bbd2e"
+};
+
+const fb = initializeApp(firebaseConfig);
+const auth = getAuth(fb);
+const db = getFirestore(fb);
+const cfgRef = doc(db, "config", "main");
+const statusRef = doc(db, "status", "main");
+const appsRef = doc(db, "status", "apps");
+
+const $ = id => document.getElementById(id);
+let config = {}, status = {}, apps = [], selected = null, unsubs = [], warnLoaded = false;
+
+const toast = text => {
+  const t = $("toast");
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => t.classList.remove("show"), 2200);
+};
+
+const localDay = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const today = () => status.today || localDay();
+const label = pkg => (apps.find(a => a.pkg === pkg) || {}).label || pkg;
+const todayBonus = () => (config.bonus && config.bonus.date === today() ? config.bonus.apps || {} : {});
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function edit(fn) {
+  try {
+    await runTransaction(db, async t => {
+      const snap = await t.get(cfgRef);
+      const data = snap.exists() ? snap.data() : {};
+      const patch = fn(data);
+      if (snap.exists()) t.update(cfgRef, patch);
+      else t.set(cfgRef, patch);
+    });
+    return true;
+  } catch (e) {
+    toast("Hiba: " + (e.code || e.message));
+    return false;
+  }
+}
+
+function renderApps() {
+  const limits = config.limits || {};
+  const bonus = todayBonus();
+  const usage = status.usage || {};
+  const suspended = new Set(status.suspended || []);
+  const pkgs = Object.keys(limits).sort((a, b) => label(a).localeCompare(label(b), "hu"));
+  const box = $("apps");
+  if (!pkgs.length) {
+    box.innerHTML = '<div class="muted">Még nincs korlátozott app.</div>';
+    return;
+  }
+  box.innerHTML = pkgs.map(pkg => {
+    const total = (limits[pkg] || 0) + (bonus[pkg] || 0);
+    const used = usage[pkg] || 0;
+    const left = Math.max(0, total - used);
+    const pct = total ? Math.min(100, (used / total) * 100) : 100;
+    const plus = bonus[pkg] ? ` (+${bonus[pkg]})` : "";
+    return `<div class="app" data-pkg="${esc(pkg)}">
+      <div class="app-head">
+        <span class="app-name">${esc(label(pkg))}${suspended.has(pkg) ? '<span class="tag">TILTVA</span>' : ""}</span>
+        <span class="app-meta">${used} / ${limits[pkg]}${plus} perc</span>
+      </div>
+      <div class="bar ${left === 0 ? "full" : ""}"><div style="width:${pct}%"></div></div>
+      <div class="muted">Még ${left} perc</div>
+      <div class="actions">
+        <button class="small ghost" data-act="bonus" data-min="5">+5</button>
+        <button class="small ghost" data-act="bonus" data-min="15">+15</button>
+        <button class="small ghost" data-act="bonus" data-min="30">+30</button>
+        <button class="small ghost" data-act="limit">Keret</button>
+        <button class="small ghost" data-act="remove">Törlés</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderList() {
+  const q = $("search").value.trim().toLowerCase();
+  const limits = config.limits || {};
+  const items = apps.filter(a => !limits[a.pkg] && (!q || a.label.toLowerCase().includes(q) || a.pkg.includes(q)));
+  $("appList").innerHTML = items.length
+    ? items.map(a => `<div data-pkg="${esc(a.pkg)}" class="${a.pkg === selected ? "sel" : ""}">${esc(a.label)}</div>`).join("")
+    : '<div class="muted" style="cursor:default">' + (apps.length ? "Nincs találat" : "A telefon még nem küldte el az app-listát") + "</div>";
+}
+
+function renderPhone() {
+  const s = status;
+  const pill = $("online");
+  pill.classList.remove("hidden", "ok", "warn", "bad");
+  if (!s.lastSeen) {
+    pill.classList.add("bad");
+    $("onlineText").textContent = "Nincs adat";
+  } else {
+    const mins = Math.floor((Date.now() - s.lastSeen) / 60000);
+    pill.classList.add(mins < 3 ? "ok" : mins < 60 ? "warn" : "bad");
+    $("onlineText").textContent = mins < 1 ? "Most aktív" : mins < 60 ? `${mins} perce` : mins < 1440 ? `${Math.floor(mins / 60)} órája` : `${Math.floor(mins / 1440)} napja`;
+  }
+  const yes = v => (v ? "igen" : "<b style='color:var(--bad)'>NEM</b>");
+  $("phone").innerHTML = `
+    <span class="muted">Utoljára</span><span>${s.lastSeen ? new Date(s.lastSeen).toLocaleString("hu-HU") : "–"}</span>
+    <span class="muted">Felügyelet</span><span>${s.lastSeen ? yes(s.deviceOwner) : "–"}</span>
+    <span class="muted">Használati hozzáférés</span><span>${s.lastSeen ? yes(s.usageAccess) : "–"}</span>
+    <span class="muted">Verzió</span><span>${esc(s.versionName || "–")}</span>
+    <span class="muted">Frissítés</span><span>${esc(s.updateResult || "–")}</span>`;
+  const released = config.release === true;
+  $("releaseBtn").classList.toggle("hidden", released);
+  $("unreleaseBtn").classList.toggle("hidden", !released);
+  $("releaseInfo").textContent = released
+    ? (s.released ? "A telefon fel van oldva. Az app most eltávolítható." : "Feloldás elküldve, a telefon a következő kapcsolódáskor végrehajtja.")
+    : "Minden korlátozás megszűnik, és az app eltávolíthatóvá válik a telefonon.";
+}
+
+function renderWarn() {
+  if (warnLoaded) return;
+  warnLoaded = true;
+  $("warnMinutes").value = config.warnMinutes ?? 5;
+  $("warnText").value = config.warnText || "Még {perc} perc van hátra: {app}";
+}
+
+function renderAll() {
+  renderApps();
+  renderList();
+  renderPhone();
+}
+
+$("apps").addEventListener("click", async e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const pkg = btn.closest(".app").dataset.pkg;
+  const act = btn.dataset.act;
+  if (act === "bonus") {
+    const n = Number(btn.dataset.min);
+    const ok = await edit(c => {
+      const day = today();
+      const cur = c.bonus && c.bonus.date === day ? { ...(c.bonus.apps || {}) } : {};
+      cur[pkg] = (cur[pkg] || 0) + n;
+      return { bonus: { date: day, apps: cur } };
+    });
+    if (ok) toast(`+${n} perc mára: ${label(pkg)}`);
+  } else if (act === "limit") {
+    const v = prompt(`Napi keret (perc): ${label(pkg)}`, (config.limits || {})[pkg]);
+    if (v === null) return;
+    const n = parseInt(v, 10);
+    if (!(n >= 0)) return toast("Érvénytelen szám");
+    if (await edit(c => ({ limits: { ...(c.limits || {}), [pkg]: n } }))) toast("Mentve");
+  } else if (act === "remove") {
+    if (!confirm(`Törlöd a korlátot? ${label(pkg)}`)) return;
+    if (await edit(c => {
+      const l = { ...(c.limits || {}) };
+      delete l[pkg];
+      return { limits: l };
+    })) toast("Törölve");
+  }
+});
+
+$("search").addEventListener("input", renderList);
+$("appList").addEventListener("click", e => {
+  const item = e.target.closest("[data-pkg]");
+  if (!item) return;
+  selected = item.dataset.pkg;
+  renderList();
+});
+
+$("addBtn").addEventListener("click", async () => {
+  const n = parseInt($("newMinutes").value, 10);
+  if (!selected) return toast("Válassz egy appot");
+  if (!(n >= 0)) return toast("Add meg a perceket");
+  const pkg = selected;
+  if (await edit(c => ({ limits: { ...(c.limits || {}), [pkg]: n } }))) {
+    toast(`Hozzáadva: ${label(pkg)}`);
+    selected = null;
+    $("newMinutes").value = "";
+    $("search").value = "";
+    renderList();
+  }
+});
+
+$("warnBtn").addEventListener("click", async () => {
+  const m = parseInt($("warnMinutes").value, 10);
+  const text = $("warnText").value.trim();
+  if (!(m >= 0)) return toast("Érvénytelen perc");
+  if (!text) return toast("Az üzenet nem lehet üres");
+  if (await edit(() => ({ warnMinutes: m, warnText: text }))) toast("Mentve");
+});
+
+$("releaseBtn").addEventListener("click", async () => {
+  const v = prompt('Biztosan feloldod? Írd be: FELOLDÁS');
+  if (v !== "FELOLDÁS") return;
+  if (await edit(() => ({ release: true }))) toast("Feloldás elküldve");
+});
+
+$("unreleaseBtn").addEventListener("click", async () => {
+  if (await edit(() => ({ release: false }))) toast("Visszavonva");
+});
+
+$("loginBtn").addEventListener("click", async () => {
+  try {
+    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+  } catch (e) {
+    toast("Sikertelen belépés");
+  }
+});
+
+$("password").addEventListener("keydown", e => e.key === "Enter" && $("loginBtn").click());
+
+$("resetLink").addEventListener("click", async e => {
+  e.preventDefault();
+  const email = $("email").value.trim();
+  if (!email) return toast("Írd be az e-mail-címet");
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast("Elküldve, nézd meg a leveleidet");
+  } catch (err) {
+    toast("Hiba: " + (err.code || err.message));
+  }
+});
+
+$("logout").addEventListener("click", e => {
+  e.preventDefault();
+  signOut(auth);
+});
+
+onAuthStateChanged(auth, user => {
+  unsubs.forEach(u => u());
+  unsubs = [];
+  warnLoaded = false;
+  $("login").classList.toggle("hidden", !!user);
+  $("app").classList.toggle("hidden", !user);
+  $("online").classList.toggle("hidden", !user);
+  if (!user) return;
+  unsubs.push(onSnapshot(cfgRef, s => {
+    config = s.exists() ? s.data() : {};
+    const url = new URL("update.json", location.href).href;
+    if (location.protocol === "https:" && config.updateUrl !== url) edit(() => ({ updateUrl: url }));
+    renderWarn();
+    renderAll();
+  }, e => toast("Nincs jogosultság: " + e.code)));
+  unsubs.push(onSnapshot(statusRef, s => { status = s.exists() ? s.data() : {}; renderAll(); }));
+  unsubs.push(onSnapshot(appsRef, s => { apps = s.exists() ? s.data().apps || [] : []; renderAll(); }));
+});
+
+setInterval(renderPhone, 30000);
+</script>
+</body>
+</html>
