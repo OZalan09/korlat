@@ -54,6 +54,8 @@ button:disabled{opacity:.5}
 .list div:first-child{border-top:0}
 .list div.sel{background:var(--accent);color:#fff}
 .hidden{display:none!important}
+.site{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.site:first-child{border-top:0;padding-top:0}
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.show{opacity:1}
 a{color:var(--accent)}
@@ -91,6 +93,16 @@ a{color:var(--accent)}
     </section>
 
     <section class="card stack">
+      <h2>Tiltott oldalak</h2>
+      <div id="sites"></div>
+      <div class="row">
+        <input id="newSite" placeholder="pl. tiktok.com" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">
+        <button id="siteBtn" class="fit">Tiltás</button>
+      </div>
+      <div class="muted">A tiltás az aldomainekre is vonatkozik. Amíg van tiltott oldal, a Chrome-on kívüli böngészők le vannak tiltva.</div>
+    </section>
+
+    <section class="card stack">
       <h2>Figyelmeztetés</h2>
       <div class="row">
         <input id="warnMinutes" type="number" min="0" inputmode="numeric" placeholder="Perc">
@@ -99,6 +111,15 @@ a{color:var(--accent)}
       <input id="warnText" placeholder="Üzenet">
       <div class="muted">{perc} = hátralévő perc, {app} = az app neve</div>
       <button id="warnBtn">Mentés</button>
+    </section>
+
+    <section class="card stack">
+      <h2>Napváltás</h2>
+      <div class="row">
+        <input id="resetTime" type="time" step="60">
+        <button id="resetBtn" class="fit">Mentés</button>
+      </div>
+      <div class="muted">Ekkor indul az új nap: a használat nullázódik, és a plusz idők lejárnak.</div>
     </section>
 
     <section class="card">
@@ -151,7 +172,7 @@ const toast = text => {
 };
 
 const localDay = () => {
-  const d = new Date();
+  const d = new Date(Date.now() - (config.resetMinutes || 0) * 60000);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 const today = () => status.today || localDay();
@@ -219,6 +240,18 @@ function renderList() {
     : '<div class="muted" style="cursor:default">' + (apps.length ? "Nincs találat" : "A telefon még nem küldte el az app-listát") + "</div>";
 }
 
+const normalize = v => {
+  let d = v.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").split(/[\/?#:]/)[0].replace(/^www\./, "");
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(d) ? d : null;
+};
+
+function renderSites() {
+  const sites = (config.sites || []).slice().sort();
+  $("sites").innerHTML = sites.length
+    ? sites.map(d => `<div class="site"><span>${esc(d)}</span><button class="small ghost" data-site="${esc(d)}">Törlés</button></div>`).join("")
+    : '<div class="muted">Nincs tiltott oldal.</div>';
+}
+
 function renderPhone() {
   const s = status;
   const pill = $("online");
@@ -236,6 +269,8 @@ function renderPhone() {
     <span class="muted">Utoljára</span><span>${s.lastSeen ? new Date(s.lastSeen).toLocaleString("hu-HU") : "–"}</span>
     <span class="muted">Felügyelet</span><span>${s.lastSeen ? yes(s.deviceOwner) : "–"}</span>
     <span class="muted">Használati hozzáférés</span><span>${s.lastSeen ? yes(s.usageAccess) : "–"}</span>
+    <span class="muted">Chrome</span><span>${s.lastSeen ? (s.chrome === false ? "<b style='color:var(--bad)'>NINCS TELEPÍTVE</b>" : "rendben") : "–"}</span>
+    <span class="muted">Letiltott böngészők</span><span>${(s.blockedBrowsers || []).length ? esc(s.blockedBrowsers.map(label).join(", ")) : "–"}</span>
     <span class="muted">Verzió</span><span>${esc(s.versionName || "–")}</span>
     <span class="muted">Frissítés</span><span>${esc(s.updateResult || "–")}</span>`;
   const released = config.release === true;
@@ -251,10 +286,13 @@ function renderWarn() {
   warnLoaded = true;
   $("warnMinutes").value = config.warnMinutes ?? 5;
   $("warnText").value = config.warnText || "Még {perc} perc van hátra: {app}";
+  const r = config.resetMinutes || 0;
+  $("resetTime").value = `${String(Math.floor(r / 60)).padStart(2, "0")}:${String(r % 60).padStart(2, "0")}`;
 }
 
 function renderAll() {
   renderApps();
+  renderSites();
   renderList();
   renderPhone();
 }
@@ -289,6 +327,25 @@ $("apps").addEventListener("click", async e => {
   }
 });
 
+$("siteBtn").addEventListener("click", async () => {
+  const d = normalize($("newSite").value);
+  if (!d) return toast("Érvénytelen cím, pl. tiktok.com");
+  if (await edit(c => ({ sites: [...new Set([...(c.sites || []), d])] }))) {
+    $("newSite").value = "";
+    toast(`Tiltva: ${d}`);
+  }
+});
+
+$("newSite").addEventListener("keydown", e => e.key === "Enter" && $("siteBtn").click());
+
+$("sites").addEventListener("click", async e => {
+  const btn = e.target.closest("[data-site]");
+  if (!btn) return;
+  const d = btn.dataset.site;
+  if (!confirm(`Feloldod? ${d}`)) return;
+  if (await edit(c => ({ sites: (c.sites || []).filter(x => x !== d) }))) toast("Feloldva");
+});
+
 $("search").addEventListener("input", renderList);
 $("appList").addEventListener("click", e => {
   const item = e.target.closest("[data-pkg]");
@@ -317,6 +374,13 @@ $("warnBtn").addEventListener("click", async () => {
   if (!(m >= 0)) return toast("Érvénytelen perc");
   if (!text) return toast("Az üzenet nem lehet üres");
   if (await edit(() => ({ warnMinutes: m, warnText: text }))) toast("Mentve");
+});
+
+$("resetBtn").addEventListener("click", async () => {
+  const v = $("resetTime").value;
+  if (!/^\d{2}:\d{2}$/.test(v)) return toast("Adj meg egy időpontot");
+  const [h, m] = v.split(":").map(Number);
+  if (await edit(() => ({ resetMinutes: h * 60 + m }))) toast(`Napváltás: ${v}`);
 });
 
 $("releaseBtn").addEventListener("click", async () => {
