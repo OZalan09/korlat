@@ -99,7 +99,11 @@ a{color:var(--accent)}
         <input id="newSite" placeholder="pl. tiktok.com" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">
         <button id="siteBtn" class="fit">Tiltás</button>
       </div>
-      <div class="muted">A tiltás az aldomainekre is vonatkozik. Amíg van tiltott oldal, a Chrome-on kívüli böngészők le vannak tiltva.</div>
+      <label class="site" style="border-top:1px solid var(--line);padding-top:12px">
+        <span>Inkognitó mód tiltása a Chrome-ban</span>
+        <input id="incognito" type="checkbox" style="width:22px;height:22px">
+      </label>
+      <div class="muted">A tiltás az aldomainekre is vonatkozik. Amíg van tiltott oldal vagy az inkognitó tiltva van, a Chrome-on kívüli böngészők le vannak tiltva.</div>
     </section>
 
     <section class="card stack">
@@ -246,6 +250,7 @@ const normalize = v => {
 };
 
 function renderSites() {
+  $("incognito").checked = config.blockIncognito !== false;
   const sites = (config.sites || []).slice().sort();
   $("sites").innerHTML = sites.length
     ? sites.map(d => `<div class="site"><span>${esc(d)}</span><button class="small ghost" data-site="${esc(d)}">Törlés</button></div>`).join("")
@@ -334,6 +339,12 @@ $("siteBtn").addEventListener("click", async () => {
     $("newSite").value = "";
     toast(`Tiltva: ${d}`);
   }
+});
+
+$("incognito").addEventListener("change", async e => {
+  const on = e.target.checked;
+  if (await edit(() => ({ blockIncognito: on }))) toast(on ? "Inkognitó tiltva" : "Inkognitó engedélyezve");
+  else e.target.checked = !on;
 });
 
 $("newSite").addEventListener("keydown", e => e.key === "Enter" && $("siteBtn").click());
